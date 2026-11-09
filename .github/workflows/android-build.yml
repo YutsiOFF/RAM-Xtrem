@@ -21,10 +21,10 @@ jobs:
       HAS_SIGNING: ${{ secrets.RX_KEYSTORE_BASE64 != '' && secrets.RX_KEYSTORE_PASSWORD != '' && secrets.RX_KEY_ALIAS != '' && secrets.RX_KEY_PASSWORD != '' }}
     steps:
       - name: Récupérer le code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Installer Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
