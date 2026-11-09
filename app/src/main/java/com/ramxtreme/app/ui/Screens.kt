@@ -100,6 +100,7 @@ fun ExtensionScreen(vm: MainViewModel) {
     val busy by vm.busy.collectAsStateWithLifecycle()
     val hasBackup by vm.hasExtensionBackup.collectAsStateWithLifecycle()
     val pending by vm.pendingMb.collectAsStateWithLifecycle()
+    val rootOk by vm.rootAvailable.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var customText by remember { mutableStateOf("") }
     var confirm by remember { mutableStateOf<ExtensionOption?>(null) }
@@ -144,6 +145,32 @@ fun ExtensionScreen(vm: MainViewModel) {
             Button(onClick = { vm.unlockList() }, enabled = shizuku == ShizukuManager.State.READY && !busy) {
                 Text("Étendre la liste Samsung")
             }
+        }
+    }
+    RxCard("Mode root (facultatif)") {
+        Note(
+            "Réservé aux téléphones déjà rootés. Redimensionne réellement la ZRAM du noyau, sans plafond constructeur. " +
+                "Le changement disparaît au redémarrage, ce qui le rend toujours réversible. RAM Xtreme ne roote pas le téléphone.",
+        )
+        StatRow(
+            "Accès root",
+            when (rootOk) {
+                null -> "Non vérifié"
+                true -> "Accordé"
+                false -> "Absent ou refusé"
+            },
+        )
+        OutlinedButton(onClick = { vm.checkRoot() }, enabled = !busy) { Text("Vérifier l'accès root") }
+        if (rootOk == true) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                listOf(6, 8, 12).forEach { gb ->
+                    Button(onClick = { vm.rootResize(gb * 1024) }, enabled = !busy) { Text("$gb Go") }
+                }
+            }
+            customMb?.let { mb ->
+                Button(onClick = { vm.rootResize(mb) }, enabled = !busy) { Text("Appliquer $mb Mo (personnalisé)") }
+            }
+            Note("Une ZRAM très supérieure à la RAM physique ralentit le téléphone quand elle se remplit.", Warn)
         }
     }
     RxCard("Personnalisé") {

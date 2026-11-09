@@ -14,6 +14,10 @@ Application Android native qui **mesure** la mémoire réelle du téléphone et 
 | Limite d'apps gardées en cache (profils) | Non | Oui |
 | Mémoire par application | Non | Oui |
 
+## Mode root (facultatif)
+
+Sur un téléphone **déjà rooté**, l'écran RAM Extension peut redimensionner réellement la ZRAM du noyau (`swapoff`, nouvelle taille, `swapon`), sans plafond constructeur. Le changement est mesuré dans `/proc/meminfo` et disparaît au redémarrage. L'application ne roote pas le téléphone et ce mode n'a pas été testé sur appareil.
+
 ## Limites d'Android (non contournables sans root)
 
 - **ZRAM** : la taille et l'algorithme ne sont modifiables que par `init`/root (SELinux).

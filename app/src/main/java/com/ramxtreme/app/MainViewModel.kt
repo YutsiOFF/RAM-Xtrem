@@ -13,6 +13,8 @@ import com.ramxtreme.app.data.ExtensionEngine
 import com.ramxtreme.app.data.Outcome
 import com.ramxtreme.app.data.Profile
 import com.ramxtreme.app.data.ProfileEngine
+import com.ramxtreme.app.data.RootEngine
+import com.ramxtreme.app.data.RootShell
 import com.ramxtreme.app.data.Snapshot
 import com.ramxtreme.app.data.SystemReader
 import com.ramxtreme.app.data.VendorState
@@ -26,6 +28,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val reader = SystemReader(app)
     private val extension = ExtensionEngine(app)
     private val profiles = ProfileEngine(app)
+    private val root = RootEngine()
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     val device: DeviceInfo = reader.device()
@@ -44,6 +47,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val intervalMs = MutableStateFlow(prefs.getLong("interval", 2000L))
     val hasExtensionBackup = MutableStateFlow(extension.hasBackup)
     val pendingMb = MutableStateFlow(extension.pendingMb)
+
+    /** null = pas encore vérifié. */
+    val rootAvailable = MutableStateFlow<Boolean?>(null)
 
     init {
         ShizukuManager.init(app)
@@ -113,6 +119,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun applyExtension(mb: Int) = launchOp { extension.apply(mb, snapshot.value?.mem?.swapTotalKb) }
     fun unlockList() = launchOp { extension.unlockList(snapshot.value?.mem?.swapTotalKb) }
+    fun checkRoot() = launchOp {
+        val ok = RootShell.available()
+        rootAvailable.value = ok
+        if (ok) Outcome(true, "Accès root accordé.")
+        else Outcome(false, "Aucun accès root : cet appareil n'est pas rooté, ou l'autorisation a été refusée.")
+    }
+
+    fun rootResize(mb: Int) = launchOp { root.resizeZram(mb) }
     fun restoreExtension() = launchOp { extension.restore() }
     fun applyProfile(profile: Profile, custom: Int) = launchOp { profiles.apply(profile, custom) }
     fun restoreProfile() = launchOp { profiles.restoreOriginal() }
