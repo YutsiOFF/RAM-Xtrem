@@ -112,7 +112,13 @@ jobs:
             NOTE="Signature Release non configurée : RAM-Xtreme.apk est l'APK Debug (installable, signé avec une clé de test)."
             FILES="dist/RAM-Xtreme.apk dist/RAM-Xtreme-debug.apk"
           fi
-          gh release create "$GITHUB_REF_NAME" $FILES \
-            --title "RAM Xtreme $GITHUB_REF_NAME" \
-            --notes "$NOTE" \
-            --generate-notes
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            # Release déjà créée depuis l'interface GitHub : on y ajoute simplement les APK.
+            gh release upload "$GITHUB_REF_NAME" $FILES --clobber
+          else
+            gh release create "$GITHUB_REF_NAME" $FILES \
+              --title "RAM Xtreme $GITHUB_REF_NAME" \
+              --notes "$NOTE" \
+              --generate-notes
+          fi
+          gh release view "$GITHUB_REF_NAME" --json assets --jq '.assets[].name'

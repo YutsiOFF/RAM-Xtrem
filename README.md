@@ -62,7 +62,7 @@ Il exécute lint et tests unitaires, compile l'APK, vérifie sa signature, puis 
 
 ## Publier une version
 
-Créez un tag `v1.0.0` (sur mobile : **Releases → Draft a new release → Choose a tag → saisir `v1.0.1` → Publish** crée le tag ; ou via git : `git tag v1.0.1 && git push origin v1.0.1`). Le workflow compile, teste, crée la Release avec ses notes et y joint `RAM-Xtreme.apk`.
+Depuis le téléphone : **Releases → Create a new release → Choose a tag → saisir `v1.0.0` → Create new tag → cocher « Generate release notes » → Publish release**. Le workflow compile, teste, puis joint `RAM-Xtreme.apk` à la Release (quelques minutes). Avec git : `git tag v1.0.0 && git push origin v1.0.0` crée aussi la Release automatiquement.
 
 ## Signature Release (facultative)
 
