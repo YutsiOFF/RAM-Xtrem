@@ -30,7 +30,11 @@ jobs:
           java-version: '17'
 
       - name: Installer le SDK Android
-        uses: android-actions/setup-android@v3
+        run: |
+          SDKMANAGER="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          yes | "$SDKMANAGER" --licenses > /dev/null || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0" > /dev/null
+          ls "$ANDROID_HOME/platforms" "$ANDROID_HOME/build-tools"
 
       - name: Configurer Gradle (avec cache)
         uses: gradle/actions/setup-gradle@v4
