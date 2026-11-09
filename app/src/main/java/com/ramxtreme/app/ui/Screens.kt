@@ -291,8 +291,26 @@ fun AppsScreen(vm: MainViewModel) {
     val apps by vm.apps.collectAsStateWithLifecycle()
     val loading by vm.appsLoading.collectAsStateWithLifecycle()
     val shizuku by vm.shizuku.collectAsStateWithLifecycle()
+    val thirdParty by vm.thirdParty.collectAsStateWithLifecycle()
+    val restricted by vm.restrictedApps.collectAsStateWithLifecycle()
+    val busy by vm.busy.collectAsStateWithLifecycle()
     val ready = shizuku == ShizukuManager.State.READY
 
+    RxCard("Libérer de la vraie RAM") {
+        Note(
+            "« Restreindre » interdit à une app de tourner en arrière-plan et l'arrête : sa RAM est rendue au système. " +
+                "L'app fonctionne normalement quand vous l'ouvrez, mais ses notifications peuvent arriver en retard. " +
+                "Uniquement pour les apps que vous avez installées, jamais les apps système.",
+        )
+        if (restricted.isNotEmpty()) {
+            restricted.sorted().forEach { pkg ->
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Text(pkg, Modifier.weight(1f))
+                    OutlinedButton(onClick = { vm.allowApp(pkg) }, enabled = ready && !busy) { Text("Autoriser") }
+                }
+            }
+        }
+    }
     RxCard("Consommation mémoire") {
         Note(
             if (ready) "Mesure PSS réelle fournie par « dumpsys meminfo » (peut prendre quelques secondes)."
@@ -310,6 +328,10 @@ fun AppsScreen(vm: MainViewModel) {
             list.take(40).forEach { app ->
                 Column {
                     StatRow(app.name, Fmt.mo(app.pssKb))
+                    val pkg = app.name.substringBefore(':')
+                    if (pkg in thirdParty && pkg !in restricted) {
+                        OutlinedButton(onClick = { vm.restrictApp(pkg) }, enabled = ready && !busy) { Text("Restreindre") }
+                    }
                     LinearProgressIndicator(
                         progress = { app.pssKb.toFloat() / max },
                         modifier = Modifier.fillMaxWidth(),

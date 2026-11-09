@@ -5,6 +5,8 @@ package com.ramxtreme.app.core
  * Elle est vérifiée dans le service privilégié : aucune autre commande ne peut partir.
  */
 object CommandPolicy {
+    const val PACKAGE = "[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z0-9_]+)+"
+
     private val allowed = listOf(
         Regex("id -u"),
         Regex("cat /proc/(meminfo|swaps|vmstat|pressure/memory)"),
@@ -19,6 +21,10 @@ object CommandPolicy {
         Regex("device_config put activity_manager max_cached_processes \\d{1,3}"),
         Regex("device_config delete activity_manager max_cached_processes"),
         Regex("am kill-all"),
+        Regex("pm list packages -3"),
+        Regex("am force-stop $PACKAGE"),
+        Regex("cmd appops get $PACKAGE RUN_ANY_IN_BACKGROUND"),
+        Regex("cmd appops set $PACKAGE RUN_ANY_IN_BACKGROUND (ignore|allow)"),
         Regex("dumpsys meminfo"),
     )
 

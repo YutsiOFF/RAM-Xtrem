@@ -91,6 +91,10 @@ class CoreTest {
         assertFalse(CommandPolicy.isAllowed("settings put global ram_expand_size 8192 && reboot"))
         assertTrue(CommandPolicy.isAllowed("settings put global ram_expand_size_list 0,2,4,6,8,12,16"))
         assertFalse(CommandPolicy.isAllowed("settings put global ram_expand_size_list 0;reboot"))
+        assertTrue(CommandPolicy.isAllowed("cmd appops set com.example.game RUN_ANY_IN_BACKGROUND ignore"))
+        assertTrue(CommandPolicy.isAllowed("am force-stop com.example.game"))
+        assertFalse(CommandPolicy.isAllowed("am force-stop com.example.game; reboot"))
+        assertFalse(CommandPolicy.isAllowed("cmd appops set com.example.game CAMERA allow"))
         assertFalse(CommandPolicy.isAllowed("pm uninstall com.example"))
         assertFalse(CommandPolicy.isAllowed("cat /data/system/packages.xml"))
     }

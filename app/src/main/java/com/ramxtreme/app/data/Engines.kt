@@ -236,3 +236,58 @@ object AppsReader {
         return Parsers.dumpsysMeminfo(r.out).takeIf { it.isNotEmpty() }
     }
 }
+
+/**
+ * Libération de RAM réelle : interdit l'exécution en arrière-plan d'apps installées par l'utilisateur.
+ * Jamais d'app système. Réversible app par app.
+ */
+class AppControl(context: Context) {
+    private val prefs = context.getSharedPreferences("apps", Context.MODE_PRIVATE)
+    private val pattern = Regex(com.ramxtreme.app.core.CommandPolicy.PACKAGE)
+
+    val restricted: Set<String> get() = (prefs.getStringSet("restricted", emptySet()) ?: emptySet()).toSet()
+
+    /** Apps installées par l'utilisateur : les seules sur lesquelles RAM Xtreme accepte d'agir. */
+    suspend fun thirdParty(): Set<String>? {
+        val r = ShizukuManager.exec("pm list packages -3") ?: return null
+        if (!r.ok) return null
+        return r.out.lineSequence().map { it.trim().removePrefix("package:") }.filter { pattern.matches(it) }.toSet()
+    }
+
+    private suspend fun guard(pkg: String, self: String): Outcome? {
+        if (!pattern.matches(pkg)) return Outcome(false, "Nom d'application invalide.")
+        if (pkg == self || pkg == "moe.shizuku.privileged.api") return Outcome(false, "Cette app est nécessaire à RAM Xtreme.")
+        val allowed = thirdParty() ?: return Outcome(false, NO_SHIZUKU)
+        return if (pkg in allowed) null else Outcome(false, "$pkg est une app système : RAM Xtreme n'y touche pas.")
+    }
+
+    suspend fun restrict(pkg: String, self: String): Outcome {
+        guard(pkg, self)?.let { return it }
+        val set = ShizukuManager.exec("cmd appops set $pkg RUN_ANY_IN_BACKGROUND ignore") ?: return Outcome(false, NO_SHIZUKU)
+        if (!set.ok) return Outcome(false, "Refusé par le système : ${set.out.trim()}")
+        val check = ShizukuManager.exec("cmd appops get $pkg RUN_ANY_IN_BACKGROUND")?.out ?: ""
+        if (!check.contains("ignore")) {
+            ShizukuManager.exec("cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow")
+            return Outcome(false, "La restriction n'a pas été prise en compte : rien n'a été modifié.")
+        }
+        ShizukuManager.exec("am force-stop $pkg")
+        prefs.edit().putStringSet("restricted", restricted + pkg).apply()
+        return Outcome(true, "$pkg : arrière-plan restreint et app arrêtée.")
+    }
+
+    suspend fun allow(pkg: String): Outcome {
+        if (!pattern.matches(pkg)) return Outcome(false, "Nom d'application invalide.")
+        val set = ShizukuManager.exec("cmd appops set $pkg RUN_ANY_IN_BACKGROUND allow") ?: return Outcome(false, NO_SHIZUKU)
+        if (!set.ok) return Outcome(false, "Refusé par le système : ${set.out.trim()}")
+        prefs.edit().putStringSet("restricted", restricted - pkg).apply()
+        return Outcome(true, "$pkg : arrière-plan de nouveau autorisé.")
+    }
+
+    suspend fun allowAll(): Outcome {
+        val all = restricted
+        if (all.isEmpty()) return Outcome(false, "Aucune app restreinte par RAM Xtreme.")
+        val failed = all.filter { !allow(it).ok }
+        return if (failed.isEmpty()) Outcome(true, "${all.size} app(s) de nouveau autorisée(s) en arrière-plan.")
+        else Outcome(false, "Non rétablies : ${failed.joinToString()}.")
+    }
+}

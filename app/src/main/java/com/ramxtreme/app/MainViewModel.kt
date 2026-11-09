@@ -7,7 +7,9 @@ import androidx.lifecycle.viewModelScope
 import com.ramxtreme.app.core.AppMem
 import com.ramxtreme.app.core.ExtensionOption
 import com.ramxtreme.app.core.ExtensionPlanner
+import com.ramxtreme.app.data.AppControl
 import com.ramxtreme.app.data.AppsReader
+import com.ramxtreme.app.core.Fmt
 import com.ramxtreme.app.data.DeviceInfo
 import com.ramxtreme.app.data.ExtensionEngine
 import com.ramxtreme.app.data.Outcome
@@ -29,6 +31,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private val extension = ExtensionEngine(app)
     private val profiles = ProfileEngine(app)
     private val root = RootEngine()
+    private val appControl = AppControl(app)
     private val prefs = app.getSharedPreferences("settings", Context.MODE_PRIVATE)
 
     val device: DeviceInfo = reader.device()
@@ -49,6 +52,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val pendingMb = MutableStateFlow(extension.pendingMb)
 
     /** null = pas encore vérifié. */
+    val thirdParty = MutableStateFlow<Set<String>>(emptySet())
+    val restrictedApps = MutableStateFlow(appControl.restricted)
     val rootAvailable = MutableStateFlow<Boolean?>(null)
 
     init {
@@ -134,16 +139,35 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun restoreEverything() = launchOp {
         val a = extension.restore()
         val b = profiles.restoreOriginal()
-        Outcome(a.ok || b.ok, "${a.message}\n${b.message}")
+        val c = appControl.allowAll()
+        restrictedApps.value = appControl.restricted
+        Outcome(a.ok || b.ok || c.ok, "${a.message}\n${b.message}\n${c.message}")
     }
 
     fun loadApps() {
         if (appsLoading.value) return
         appsLoading.value = true
         viewModelScope.launch {
+            thirdParty.value = appControl.thirdParty() ?: emptySet()
             apps.value = AppsReader.load()
             appsLoading.value = false
         }
+    }
+
+    /** Restreint une app puis mesure la RAM réellement libérée. */
+    fun restrictApp(pkg: String) = launchOp {
+        val before = reader.snapshot().mem?.availableKb
+        val result = appControl.restrict(pkg, getApplication<Application>().packageName)
+        restrictedApps.value = appControl.restricted
+        if (!result.ok || before == null) return@launchOp result
+        delay(2500)
+        val after = reader.snapshot().mem?.availableKb ?: return@launchOp result
+        apps.value = AppsReader.load()
+        Outcome(true, "${result.message} RAM disponible : ${Fmt.mo(before)} → ${Fmt.mo(after)}.")
+    }
+
+    fun allowApp(pkg: String) = launchOp {
+        appControl.allow(pkg).also { restrictedApps.value = appControl.restricted }
     }
 
     fun requestShizuku() = ShizukuManager.requestPermission()
