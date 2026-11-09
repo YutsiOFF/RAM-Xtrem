@@ -63,12 +63,58 @@ class ExtensionEngine(context: Context) {
         return Outcome(true, "Réglage écrit et relu. Redémarrez : le résultat réel sera mesuré au prochain lancement.")
     }
 
+    /**
+     * Ajoute 6, 8, 12 et 16 Go à la liste que les réglages Samsung proposent.
+     * Le choix se fait ensuite dans l'écran RAM Plus de Samsung, qui applique lui-même la valeur.
+     */
+    suspend fun unlockList(swapTotalKb: Long?): Outcome {
+        val before = ShizukuManager.exec("settings get global ram_expand_size_list") ?: return Outcome(false, NO_SHIZUKU)
+        if (!before.ok) return Outcome(false, "Lecture refusée : ${before.out.trim()}")
+        val previous = before.out.trim()
+        val current = Parsers.intList(previous) ?: listOf(0, 2, 4)
+        val target = (current + listOf(6, 8, 12, 16)).filter { it in 0..16 }.distinct().sorted().joinToString(",")
+
+        if (!prefs.contains(KEY_ORIGINAL_LIST)) prefs.edit().putString(KEY_ORIGINAL_LIST, previous).apply()
+
+        val write = ShizukuManager.exec("settings put global ram_expand_size_list $target")
+            ?: return Outcome(false, NO_SHIZUKU)
+        if (!write.ok) return Outcome(false, "Écriture refusée par le système : ${write.out.trim()}")
+        val check = ShizukuManager.exec("settings get global ram_expand_size_list")?.out?.trim()
+        if (check != target) {
+            writeList(previous)
+            return Outcome(false, "La liste relue ne correspond pas : liste précédente restaurée.")
+        }
+        prefs.edit()
+            .putInt(KEY_PENDING_MB, 0)
+            .putLong(KEY_PENDING_SWAP, swapTotalKb ?: -1L)
+            .putLong(KEY_PENDING_BOOT, bootTime())
+            .apply()
+        return Outcome(
+            true,
+            "Liste étendue : $target Go. Ouvrez maintenant Paramètres → Maintenance de l'appareil → Mémoire → RAM Plus, " +
+                "choisissez la taille voulue, puis redémarrez. RAM Xtreme mesurera le résultat.",
+        )
+    }
+
     suspend fun restore(): Outcome {
         val original = prefs.getString(KEY_ORIGINAL, null)
-            ?: return Outcome(false, "Aucune sauvegarde : RAM Xtreme n'a rien modifié.")
-        if (!writeRaw(original)) return Outcome(false, "Restauration refusée (Shizuku indisponible ?).")
+        val list = prefs.getString(KEY_ORIGINAL_LIST, null)
+        if (original == null && list == null) return Outcome(false, "Aucune sauvegarde : RAM Xtreme n'a rien modifié.")
+        var ok = true
+        if (original != null) ok = writeRaw(original) && ok
+        if (list != null) ok = writeList(list) && ok
+        if (!ok) return Outcome(false, "Restauration refusée (Shizuku indisponible ?).")
         prefs.edit().clear().apply()
-        return Outcome(true, "Valeur d'origine restaurée. Redémarrez pour l'appliquer.")
+        return Outcome(true, "Valeurs d'origine restaurées. Redémarrez pour les appliquer.")
+    }
+
+    private suspend fun writeList(value: String): Boolean {
+        val cmd = if (Parsers.intList(value) == null) {
+            "settings delete global ram_expand_size_list"
+        } else {
+            "settings put global ram_expand_size_list ${Parsers.intList(value)!!.joinToString(",")}"
+        }
+        return ShizukuManager.exec(cmd)?.ok == true
     }
 
     private suspend fun writeRaw(value: String): Boolean {
@@ -80,17 +126,18 @@ class ExtensionEngine(context: Context) {
         return ShizukuManager.exec(cmd)?.ok == true
     }
 
-    val hasBackup: Boolean get() = prefs.contains(KEY_ORIGINAL)
+    val hasBackup: Boolean get() = prefs.contains(KEY_ORIGINAL) || prefs.contains(KEY_ORIGINAL_LIST)
 
     /** Après un redémarrage, compare le swap réel avant/après. Renvoie null s'il n'y a rien à vérifier. */
     fun verifyAfterReboot(swapTotalKb: Long?): Outcome? {
         if (!prefs.contains(KEY_PENDING_MB)) return null
         if (abs(bootTime() - prefs.getLong(KEY_PENDING_BOOT, 0L)) < 60_000L) return null
-        val target = prefs.getInt(KEY_PENDING_MB, 0)
+        val targetMb = prefs.getInt(KEY_PENDING_MB, 0)
+        val target = if (targetMb > 0) "$targetMb Mo" else "le réglage RAM Plus choisi"
         val beforeKb = prefs.getLong(KEY_PENDING_SWAP, -1L)
         prefs.edit().remove(KEY_PENDING_MB).remove(KEY_PENDING_SWAP).remove(KEY_PENDING_BOOT).apply()
         if (swapTotalKb == null || beforeKb < 0) {
-            return Outcome(false, "Swap non mesurable : impossible de confirmer l'effet du réglage ${target} Mo.")
+            return Outcome(false, "Swap non mesurable : impossible de confirmer l'effet pour $target.")
         }
         return if (swapTotalKb > beforeKb + 64 * 1024) {
             Outcome(true, "Extension prise en compte : swap passé de ${Fmt.go(beforeKb)} à ${Fmt.go(swapTotalKb)}.")
@@ -99,7 +146,7 @@ class ExtensionEngine(context: Context) {
         } else {
             Outcome(
                 false,
-                "Le système n'a pas appliqué ${target} Mo : swap inchangé (${Fmt.go(swapTotalKb)}). " +
+                "Le système n'a pas appliqué $target : swap inchangé (${Fmt.go(swapTotalKb)}). " +
                     "Vous pouvez restaurer la valeur d'origine.",
             )
         }
@@ -111,6 +158,7 @@ class ExtensionEngine(context: Context) {
 
     private companion object {
         const val KEY_ORIGINAL = "original"
+        const val KEY_ORIGINAL_LIST = "original_list"
         const val KEY_PENDING_MB = "pending_mb"
         const val KEY_PENDING_SWAP = "pending_swap"
         const val KEY_PENDING_BOOT = "pending_boot"

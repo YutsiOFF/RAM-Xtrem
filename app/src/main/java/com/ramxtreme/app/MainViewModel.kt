@@ -112,6 +112,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun applyExtension(mb: Int) = launchOp { extension.apply(mb, snapshot.value?.mem?.swapTotalKb) }
+    fun unlockList() = launchOp { extension.unlockList(snapshot.value?.mem?.swapTotalKb) }
     fun restoreExtension() = launchOp { extension.restore() }
     fun applyProfile(profile: Profile, custom: Int) = launchOp { profiles.apply(profile, custom) }
     fun restoreProfile() = launchOp { profiles.restoreOriginal() }

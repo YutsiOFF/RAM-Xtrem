@@ -115,12 +115,13 @@ fun ExtensionScreen(vm: MainViewModel) {
         StatRow("Swap réellement actif", Fmt.both(snap?.mem?.swapTotalKb))
         StatRow("Mécanisme constructeur", vm.device.vendor.mechanism)
         StatRow("Réglage enregistré", vendorState?.currentMb?.let { if (it == 0) "Désactivé" else Fmt.both(it * 1024L) })
+        StatRow("Valeur brute de la clé", vendorState?.let { state -> state.rawValue?.let { "$it (${state.unit.name})" } ?: "Absente" })
         StatRow("Valeurs constructeur", vendorState?.listGb?.joinToString(", ") { "$it Go" })
         StatRow("Stockage libre", Fmt.both(snap?.storageFreeKb))
     }
     pending?.let {
         RxCard("Vérification en attente") {
-            Note("Réglage ${it / 1024.0} Go écrit. Redémarrez le téléphone : RAM Xtreme mesurera le swap réel au prochain lancement.", Warn)
+            Note((if (it > 0) "Réglage ${it / 1024.0} Go écrit." else "Liste Samsung étendue : choisissez la taille dans RAM Plus.") + " Redémarrez le téléphone : RAM Xtreme mesurera le swap réel au prochain lancement.", Warn)
         }
     }
     RxCard("A · Réellement configurables") {
@@ -132,6 +133,18 @@ fun ExtensionScreen(vm: MainViewModel) {
     RxCard("B · Théoriques (non applicables ici)") {
         if (theoretical.isEmpty()) Note("Toutes les valeurs listées sont applicables.")
         theoretical.forEach { option -> OptionRow(option, enabled = false) {} }
+    }
+    if (vm.device.vendor.adbTunable) {
+        RxCard("Méthode 2 · Débloquer dans les réglages Samsung") {
+            Note(
+                "Si l'écriture directe est ignorée au redémarrage, cette méthode ajoute 6, 8, 12 et 16 Go à la liste de " +
+                    "l'écran RAM Plus de Samsung. Vous choisissez ensuite la taille dans cet écran : c'est Samsung qui " +
+                    "l'applique. Résultat non garanti, mesuré après redémarrage.",
+            )
+            Button(onClick = { vm.unlockList() }, enabled = shizuku == ShizukuManager.State.READY && !busy) {
+                Text("Étendre la liste Samsung")
+            }
+        }
     }
     RxCard("Personnalisé") {
         OutlinedTextField(

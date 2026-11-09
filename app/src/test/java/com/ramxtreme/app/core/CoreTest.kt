@@ -89,6 +89,8 @@ class CoreTest {
         assertFalse(CommandPolicy.isAllowed("cat /proc/meminfo; rm -rf /sdcard"))
         assertFalse(CommandPolicy.isAllowed("settings put global adb_enabled 0"))
         assertFalse(CommandPolicy.isAllowed("settings put global ram_expand_size 8192 && reboot"))
+        assertTrue(CommandPolicy.isAllowed("settings put global ram_expand_size_list 0,2,4,6,8,12,16"))
+        assertFalse(CommandPolicy.isAllowed("settings put global ram_expand_size_list 0;reboot"))
         assertFalse(CommandPolicy.isAllowed("pm uninstall com.example"))
         assertFalse(CommandPolicy.isAllowed("cat /data/system/packages.xml"))
     }
