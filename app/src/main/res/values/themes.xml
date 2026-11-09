@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.RamXtreme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">#070B18</item>
+        <item name="android:statusBarColor">#070B18</item>
+        <item name="android:navigationBarColor">#070B18</item>
+    </style>
+</resources>

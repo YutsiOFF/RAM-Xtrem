@@ -1,0 +1,14 @@
+.gradle/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+captures/
+.kotlin/
+*.apk
+*.aab
+# Secrets de signature : ne jamais les versionner
+*.jks
+*.keystore
+keystore.properties
